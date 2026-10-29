@@ -51,7 +51,7 @@ lib/ui/glass/
 | `lib/main.dart` | `LiquidGlassWidgets.initialize()` 预热着色器；`wrap()` 注入主题、无障碍降级、`brightnessResolver` |
 | `lib/application.dart` | `GlassPage` + `SkyBackdrop` 挂载；`scaffoldBackgroundColor` 透明；`Card`/`SnackBar` 玻璃化主题 |
 | `lib/ui/glass/sky_backdrop.dart` | 新增：程序化壁纸 |
-| `lib/ui/glass/glass_kit.dart` | 新增：光学预设、`SkyGlassPanel`、`SkyGlassChrome`、`SkyGlassCircle`、配色变换 |
+| `lib/ui/glass/glass_kit.dart` | 新增：光学预设、`SkyGlassPanel`、`SkyGlassChrome`、`SkyGlassCircle`、`_GlassHost`（嵌套降级）、配色变换 |
 | `lib/widgets/card.dart` | `CommonCard` 表面换成玻璃面板，按钮只保留 ink 与焦点环（否则会在玻璃上再糊一层不透明底色） |
 | `lib/widgets/scaffold.dart` | 顶部栏套玻璃条；`Scaffold` 默认透明 |
 | `lib/widgets/dialog.dart` | `AlertDialog` → 自绘 `Dialog` + 玻璃面板（`AlertDialog` 无法在自身形状内做背景模糊），内边距、标题字号、`OverflowBar` 行为全部对齐原版 |
@@ -60,10 +60,32 @@ lib/ui/glass/
 | `lib/manager/message_manager.dart` | 应用内 Toast 换成玻璃条 |
 | `lib/views/dashboard/dashboard.dart` | 首页启动胶囊：待机=清透玻璃，运行中=主色玻璃 |
 
-## 踩到的两条规则
+## 两条硬规则
 
-1. **玻璃是托盘，不是包装器。** 玻璃只用于导航与控制层。内容卡片用 `standard` 档并共享背景捕获；密集列表项不逐项加玻璃。
-2. **不把折射玻璃放进折射玻璃。** `GlassContainer` 会给子树打 `avoidsRefraction`，嵌套只会降质并裁掉回弹动画。所以卡片里放的是普通文本/控件，玻璃控件放在卡片外。
+这两条来自库自带的 `skills/liquid-glass-widgets/SKILL.md`，违反了不会报错，只会在真机上表现为掉帧、缺面或糊成一块灰板。
+
+**1. 玻璃是托盘，不是包装器。** 折射玻璃只用于导航与控制层（顶栏、Dock、弹窗、Toast、启动胶囊）。内容卡片用 `standard` 档，并共享同一次背景捕获。
+
+**2. 折射玻璃里不能再放折射玻璃。**
+
+Bettbox 的界面天然会嵌套：设置页的行是 `CommonCard`，而这些行又被 `SectionContainer` / `generateSectionV2` 包进外层 `CommonCard`；底部弹层本身是玻璃，里面又全是卡片。一旦嵌套，子层会在父层内部再发起一次背景采样，Impeller 会因 GPU tile 内存抖动出现缺面和合成伪影。
+
+堵法是在材质层统一处理，而不是要求每个调用点自己小心。`SkyGlassPanel` / `SkyGlassChrome` / `SkyGlassCircle` 都把自己的子树包进 `InheritedLiquidGlass(avoidsRefraction: true)`——这正是库里 `GlassContainer` 内部的做法：
+
+```dart
+AdaptiveGlass(
+  ...
+  settings: effectiveSettings,
+  child: InheritedLiquidGlass(
+    settings: effectiveSettings,
+    quality: quality,
+    avoidsRefraction: true,   // 告知子树：你们已经在玻璃里面了
+    child: content,
+  ),
+);
+```
+
+于是任何嵌套的玻璃面板自动走 `_VibrancyFill` 分支：保留描边与高光，不再做第二次背景折射。这与 iOS 26 的 `UIVibrancyEffect` 放在 `UIVisualEffectView` 内不再读取背景是同一个模型。
 
 ## 性能取舍
 
