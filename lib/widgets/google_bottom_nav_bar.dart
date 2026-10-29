@@ -3,8 +3,10 @@ import 'package:bett_box/common/common.dart';
 import 'package:bett_box/enum/enum.dart';
 import 'package:bett_box/models/common.dart';
 import 'package:bett_box/providers/providers.dart';
+import 'package:bett_box/ui/glass/glass_kit.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -191,17 +193,9 @@ class _GoogleBottomNavBarState extends ConsumerState<GoogleBottomNavBar>
     final primaryColor = colorScheme.primary;
     final onSurfaceVariantColor = colorScheme.onSurfaceVariant;
 
-    // Body color matching CommonCard (widget) formula for visual harmony
-    final widgetBodyColor = isLight
-        ? Color.lerp(
-            colorScheme.surface,
-            colorScheme.surfaceContainerLowest,
-            0.5,
-          )!
-        : (pureBlack ? Colors.black : colorScheme.surfaceContainerHigh);
-
-    final navColor = widgetBodyColor.withValues(alpha: 0.98);
-    final shadowStrength = isLight ? 1.0 : 3.0;
+    // OLED users asked for true black, so the dock stays an opaque black plate
+    // for them instead of becoming a refractive one.
+    final pureBlackTint = pureBlack ? Colors.black : null;
 
     const itemTextStyle = TextStyle(
       fontSize: 10.5,
@@ -367,34 +361,25 @@ class _GoogleBottomNavBarState extends ConsumerState<GoogleBottomNavBar>
                 const barHeight = 60.0;
 
                 return RepaintBoundary(
-                  child: Container(
+                  child: SizedBox(
                     height: barHeight,
-                    decoration: BoxDecoration(
-                      color: navColor,
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(
-                        color: Colors.transparent,
-                        width: 1,
-                        strokeAlign: BorderSide.strokeAlignInside,
+                    // The dock is the app's primary navigation chrome: a
+                    // floating refractive pill sampling the wallpaper and the
+                    // scrolled content behind it.
+                    child: SkyGlassPanel(
+                      radius: 30,
+                      quality: GlassQuality.premium,
+                      settings: SkyGlass.chrome(
+                        colorScheme.brightness,
+                      ).copyWith(
+                        glassColor:
+                            pureBlackTint ??
+                            (isLight
+                                ? const Color(0xC9FFFFFF)
+                                : const Color(0xB80F131A)),
+                        shadowElevation: 2.0,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
-                          color: colorScheme.shadow.withValues(
-                            alpha: 0.08 * shadowStrength,
-                          ),
-                        ),
-                        BoxShadow(
-                          blurRadius: 3,
-                          offset: const Offset(0, 1),
-                          color: colorScheme.shadow.withValues(
-                            alpha: 0.04 * shadowStrength,
-                          ),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
+                      child: Stack(
                       alignment: Alignment.centerLeft,
                       children: [
                         if (count > 0)
@@ -547,6 +532,7 @@ class _GoogleBottomNavBarState extends ConsumerState<GoogleBottomNavBar>
                       ],
                     ),
                   ),
+                ),
                 );
               },
             ),

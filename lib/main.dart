@@ -9,6 +9,7 @@ import 'package:bett_box/plugins/clipboard_ext.dart';
 import 'package:bett_box/plugins/tile.dart';
 import 'package:bett_box/plugins/vpn.dart';
 import 'package:bett_box/state.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -93,7 +94,29 @@ Future<void> _runApp() async {
     clipboardExt.init();
   }
   HttpOverrides.global = BettboxHttpOverrides();
-  runApp(ProviderScope(retry: (_, _) => null, child: const Application()));
+
+  // Pre-warm the liquid glass shader pipeline before the first frame, so no
+  // surface flashes unfrosted while its fragment program is still compiling.
+  // This is pure disk-to-RAM I/O — it issues no GPU work and does not delay
+  // the window presenting.
+  await LiquidGlassWidgets.initialize();
+
+  runApp(
+    ProviderScope(
+      retry: (_, _) => null,
+      child: LiquidGlassWidgets.wrap(
+        // MaterialApp keeps its own ThemeMode, so the glass layer needs the
+        // resolved theme brightness rather than the raw OS one. Without this
+        // the rims and shadows invert whenever the OS and the app disagree.
+        brightnessResolver: Theme.maybeBrightnessOf,
+        // Benchmarks the device raster budget for ~3s, then promotes to
+        // premium or degrades to minimal. Keeps glass usable on cheap phones
+        // instead of dropping frames everywhere.
+        adaptiveQuality: true,
+        child: const Application(),
+      ),
+    ),
+  );
 }
 
 @pragma('vm:entry-point')

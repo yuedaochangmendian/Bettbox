@@ -11,6 +11,9 @@ import 'package:bett_box/manager/manager.dart';
 import 'package:bett_box/plugins/app.dart';
 import 'package:bett_box/providers/providers.dart';
 import 'package:bett_box/state.dart';
+import 'package:bett_box/ui/glass/glass_kit.dart';
+import 'package:bett_box/ui/glass/sky_backdrop.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,7 +46,10 @@ class ApplicationState extends ConsumerState<Application>
     required Brightness brightness,
     int? primaryColor,
   }) {
-    return ref.read(genColorSchemeProvider(brightness));
+    // `.glassSurfaces` softens the surface family to translucent. Doing it here
+    // (rather than per-widget) is what lets the SkyBackdrop show through every
+    // panel, sheet, dialog and input without touching their call sites.
+    return ref.read(genColorSchemeProvider(brightness)).glassSurfaces;
   }
 
   SwitchThemeData _switchTheme(ColorScheme colorScheme) {
@@ -289,8 +295,19 @@ class ApplicationState extends ConsumerState<Application>
                     builder: (_, enabled, _) {
                       return TickerMode(
                         enabled: enabled,
-                        child: _buildApp(
-                          AppSidebarContainer(child: _buildPlatformApp(child!)),
+                        // One wallpaper plus one shared refractive layer for the
+                        // entire app. Every Glass* widget below inherits this
+                        // layer, so a screen full of glass cards costs a single
+                        // backdrop capture instead of one per card. GlassPage
+                        // also forces every Scaffold inside it transparent,
+                        // which is what lets the backdrop reach the panels.
+                        child: GlassPage(
+                          background: SkyBackdrop(animate: enabled),
+                          child: _buildApp(
+                            AppSidebarContainer(
+                              child: _buildPlatformApp(child!),
+                            ),
+                          ),
                         ),
                       );
                     },
@@ -306,10 +323,21 @@ class ApplicationState extends ConsumerState<Application>
               theme: ThemeData(
                 useMaterial3: true,
                 pageTransitionsTheme: _pageTransitionsTheme,
-                scaffoldBackgroundColor: _getAppColorScheme(
-                  brightness: Brightness.light,
-                  primaryColor: themeProps.primaryColor,
-                ).surfaceContainer,
+                // Transparent so the SkyBackdrop reaches every screen, not just
+                // the ones that go through CommonScaffold.
+                scaffoldBackgroundColor: Colors.transparent,
+                cardTheme: glassCardTheme(
+                  _getAppColorScheme(
+                    brightness: Brightness.light,
+                    primaryColor: themeProps.primaryColor,
+                  ),
+                ),
+                snackBarTheme: glassSnackBarTheme(
+                  _getAppColorScheme(
+                    brightness: Brightness.light,
+                    primaryColor: themeProps.primaryColor,
+                  ),
+                ),
                 appBarTheme: const AppBarTheme(
                   backgroundColor: Colors.transparent,
                   elevation: 0,
@@ -420,10 +448,19 @@ class ApplicationState extends ConsumerState<Application>
               darkTheme: ThemeData(
                 useMaterial3: true,
                 pageTransitionsTheme: _pageTransitionsTheme,
-                scaffoldBackgroundColor: _getAppColorScheme(
-                  brightness: Brightness.dark,
-                  primaryColor: themeProps.primaryColor,
-                ).toPureBlack(themeProps.pureBlack).surfaceContainer,
+                scaffoldBackgroundColor: Colors.transparent,
+                cardTheme: glassCardTheme(
+                  _getAppColorScheme(
+                    brightness: Brightness.dark,
+                    primaryColor: themeProps.primaryColor,
+                  ).toPureBlack(themeProps.pureBlack),
+                ),
+                snackBarTheme: glassSnackBarTheme(
+                  _getAppColorScheme(
+                    brightness: Brightness.dark,
+                    primaryColor: themeProps.primaryColor,
+                  ).toPureBlack(themeProps.pureBlack),
+                ),
                 appBarTheme: const AppBarTheme(
                   backgroundColor: Colors.transparent,
                   elevation: 0,

@@ -6,10 +6,12 @@ import 'package:bett_box/enum/enum.dart';
 import 'package:bett_box/models/models.dart';
 import 'package:bett_box/providers/providers.dart';
 import 'package:bett_box/state.dart';
+import 'package:bett_box/ui/glass/glass_kit.dart';
 import 'package:bett_box/widgets/widgets.dart';
 import 'package:defer_pointer/defer_pointer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'widgets/widgets.dart';
@@ -700,26 +702,19 @@ class _DashboardStartSwitchState extends ConsumerState<_DashboardStartSwitch> {
       ),
     );
     final isOutlined = style == StartSwitchStyle.outlined;
-    final trackColor = isOutlined
-        ? isLight
-              ? Color.lerp(
-                  colorScheme.surface,
-                  colorScheme.surfaceContainerLowest,
-                  0.5,
-                )
-              : colorScheme.surfaceContainerHigh
-        : displayStart
-        ? colorScheme.primary.withValues(alpha: isLight ? 0.12 : 0.2)
-        : colorScheme.onSurface.withValues(alpha: 0.06);
-    final borderSide = isOutlined
-        ? BorderSide(
-            color: displayStart
-                ? colorScheme.primary.withValues(alpha: 0.45)
-                : colorScheme.outlineVariant.withValues(
-                    alpha: isLight ? 0.45 : 0.25,
-                  ),
+    // `outlined` is the lighter of the two user-selectable styles: thin frosted
+    // glass that lets the wallpaper through, versus the denser chrome plate.
+    final baseSettings = isOutlined
+        ? SkyGlass.pill(colorScheme.brightness)
+        : SkyGlass.chrome(colorScheme.brightness);
+    final startSettings = displayStart
+        ? baseSettings.copyWith(
+            glassColor: colorScheme.primary.withValues(
+              alpha: isLight ? 0.26 : 0.34,
+            ),
+            shadowElevation: 1.8,
           )
-        : BorderSide.none;
+        : baseSettings;
     final iconColor = displayStart
         ? colorScheme.primary
         : colorScheme.onSurfaceVariant;
@@ -738,35 +733,45 @@ class _DashboardStartSwitchState extends ConsumerState<_DashboardStartSwitch> {
       child: AnimatedOpacity(
         opacity: isAvailable ? 1 : 0.38,
         duration: midDuration,
-        child: TextButton(
-          focusNode: _focusNode,
-          onPressed: canPress ? _handleStart : null,
-          style: ButtonStyle(
-            visualDensity: VisualDensity.standard,
-            padding: const WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            ),
-            minimumSize: const WidgetStatePropertyAll(Size.zero),
-            backgroundColor: WidgetStatePropertyAll(trackColor),
-            shape: WidgetStateProperty.resolveWith(
-              (states) => StadiumBorder(
-                side: states.contains(WidgetState.focused)
-                    ? BorderSide(color: colorScheme.primary, width: 2)
-                    : borderSide,
+        // The start capsule is the app's hero control, so it is the one place
+        // where the glass itself is tinted by state: idle reads as clear glass,
+        // running as a plate of the accent colour.
+        child: SkyGlassPanel(
+          radius: 30,
+          quality: GlassQuality.premium,
+          settings: startSettings,
+          child: TextButton(
+            focusNode: _focusNode,
+            onPressed: canPress ? _handleStart : null,
+            style: ButtonStyle(
+              visualDensity: VisualDensity.standard,
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              ),
+              minimumSize: const WidgetStatePropertyAll(Size.zero),
+              backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+              overlayColor: WidgetStatePropertyAll(
+                colorScheme.onSurface.withValues(alpha: 0.05),
+              ),
+              shape: WidgetStateProperty.resolveWith(
+                (states) => StadiumBorder(
+                  side: states.contains(WidgetState.focused)
+                      ? BorderSide(color: colorScheme.primary, width: 2)
+                      : BorderSide.none,
+                ),
               ),
             ),
-          ),
-          child: Stack(
-            children: [
-              AnimatedPadding(
-                duration: midDuration,
-                curve: Curves.easeOutCubic,
-                padding: EdgeInsetsDirectional.only(
-                  start: displayStart ? 4 : 26,
-                  end: displayStart ? 26 : 4,
-                ),
-                child: SizedBox(
-                  height: 24,
+            child: Stack(
+              children: [
+                AnimatedPadding(
+                  duration: midDuration,
+                  curve: Curves.easeOutCubic,
+                  padding: EdgeInsetsDirectional.only(
+                    start: displayStart ? 4 : 26,
+                    end: displayStart ? 26 : 4,
+                  ),
+                  child: SizedBox(
+                    height: 24,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -814,6 +819,7 @@ class _DashboardStartSwitchState extends ConsumerState<_DashboardStartSwitch> {
                 ),
               ),
             ],
+          ),
           ),
         ),
       ),

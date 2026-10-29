@@ -3,8 +3,10 @@ import 'dart:math';
 
 import 'package:bett_box/common/common.dart';
 import 'package:bett_box/models/models.dart';
+import 'package:bett_box/ui/glass/glass_kit.dart';
 import 'package:bett_box/widgets/fade_box.dart';
 import 'package:bett_box/widgets/text.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MessageManager extends StatefulWidget {
@@ -92,17 +94,25 @@ class MessageManagerState extends State<MessageManager> {
                       key: Key(messages.last.id),
                       builder: (_, constraints) {
                         final message = messages.last;
-                        return Card(
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(12.0),
+                        return SizedBox(
+                          width: min(constraints.maxWidth, 500),
+                          child: SkyGlassPanel(
+                            radius: 18,
+                            quality: GlassQuality.premium,
+                            settings: SkyGlass.chrome(
+                              context.colorScheme.brightness,
+                            ).copyWith(
+                              // Toasts float over arbitrary content, so they
+                              // need a denser body than the app chrome to stay
+                              // readable, while keeping the refractive rim.
+                              glassColor:
+                                  context.colorScheme.brightness ==
+                                      Brightness.dark
+                                  ? const Color(0xD9101419)
+                                  : const Color(0xE0FFFFFF),
+                              shadowElevation: 2.0,
                             ),
-                          ),
-                          elevation: 10,
-                          color: context.colorScheme.surfaceContainerHigh,
-                          child: Container(
-                            width: min(constraints.maxWidth, 500),
-                            padding: EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 12,
                             ),

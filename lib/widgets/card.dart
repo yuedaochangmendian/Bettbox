@@ -1,5 +1,6 @@
 import 'package:bett_box/common/common.dart';
 import 'package:bett_box/enum/enum.dart';
+import 'package:bett_box/ui/glass/glass_kit.dart';
 import 'package:bett_box/widgets/fade_box.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -112,43 +113,29 @@ class CommonCard extends StatelessWidget {
 
   BorderSide getBorderSide(BuildContext context, Set<WidgetState> states) {
     final colorScheme = context.colorScheme;
-    final hoverColor = isSelected
-        ? colorScheme.primary.opacity80
-        : colorScheme.primary.opacity60;
     if (states.contains(WidgetState.hovered) ||
         states.contains(WidgetState.focused) ||
         states.contains(WidgetState.pressed)) {
       return BorderSide(
-        color: hoverColor,
+        color: isSelected
+            ? colorScheme.primary.opacity80
+            : colorScheme.primary.opacity60,
         strokeAlign: BorderSide.strokeAlignInside,
       );
     }
-    final isLight = colorScheme.brightness == Brightness.light;
-    return BorderSide(
-      color: isSelected
-          ? colorScheme.primary
-          : colorScheme.outlineVariant.withValues(
-              alpha: elevated ? (isLight ? 0.65 : 0.35) : (isLight ? 0.8 : 0.4),
-            ),
-      strokeAlign: BorderSide.strokeAlignInside,
-    );
+    return BorderSide.none;
   }
 
-  Color? getBackgroundColor(BuildContext context, Set<WidgetState> states) {
-    final colorScheme = context.colorScheme;
-    if (isSelected) {
-      return type == CommonCardType.filled
-          ? colorScheme.secondaryContainer.opacity80
-          : colorScheme.secondaryContainer;
-    }
-    final isLight = colorScheme.brightness == Brightness.light;
-    return isLight
-        ? Color.lerp(
-            colorScheme.surface,
-            colorScheme.surfaceContainerLowest,
-            0.5,
-          )
-        : colorScheme.surfaceContainerHigh;
+  /// Ink only. The card's surface is the glass panel behind this button, so the
+  /// button must stay fully transparent at rest — otherwise it would paint an
+  /// opaque sheet over the very thing that makes it glass.
+  Color? getInkColor(BuildContext context, Set<WidgetState> states) {
+    final isActive =
+        states.contains(WidgetState.hovered) ||
+        states.contains(WidgetState.focused) ||
+        states.contains(WidgetState.pressed);
+    if (!isActive) return Colors.transparent;
+    return context.colorScheme.onSurface.withValues(alpha: 0.055);
   }
 
   @override
@@ -177,21 +164,22 @@ class CommonCard extends StatelessWidget {
     }
 
     final isInteractive = onPressed != null || onLongPress != null;
-    final isLight = context.colorScheme.brightness == Brightness.light;
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(actualRadius),
     );
-    Widget card = OutlinedButton(
+
+    final inkButton = OutlinedButton(
       onLongPress: onLongPress,
       clipBehavior: clipBehavior,
       style: ButtonStyle(
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         shape: WidgetStatePropertyAll(shape),
         iconColor: WidgetStatePropertyAll(context.colorScheme.primary),
-        iconSize: WidgetStateProperty.all(20),
+        iconSize: const WidgetStatePropertyAll(20),
         backgroundColor: WidgetStateProperty.resolveWith(
-          (states) => getBackgroundColor(context, states),
+          (states) => getInkColor(context, states),
         ),
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         side: WidgetStateProperty.resolveWith(
           (states) => getBorderSide(context, states),
         ),
@@ -202,15 +190,32 @@ class CommonCard extends StatelessWidget {
       child: childWidget,
     );
 
+    Widget card = SkyGlassPanel(
+      radius: actualRadius,
+      clipBehavior: clipBehavior,
+      child: isSelected
+          ? Stack(
+              children: [
+                Positioned.fill(
+                  child: ColoredBox(
+                    color: context.colorScheme.primary.withValues(alpha: 0.13),
+                  ),
+                ),
+                inkButton,
+              ],
+            )
+          : inkButton,
+    );
+
     if (elevated) {
       card = DecoratedBox(
         decoration: ShapeDecoration(
           shape: shape,
           shadows: [
             BoxShadow(
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-              color: Colors.black.withValues(alpha: isLight ? 0.045 : 0.25),
+              blurRadius: 18,
+              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.10),
             ),
           ],
         ),

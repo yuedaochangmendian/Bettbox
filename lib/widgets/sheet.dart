@@ -2,6 +2,7 @@ import 'package:bett_box/common/common.dart';
 import 'package:bett_box/enum/enum.dart';
 import 'package:bett_box/models/models.dart';
 import 'package:bett_box/state.dart';
+import 'package:bett_box/ui/glass/glass_kit.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -355,16 +356,20 @@ class _ExpandableBottomSheetState extends State<_ExpandableBottomSheet>
       );
     }
 
-    final backgroundColor = context.colorScheme.surfaceContainerLow;
     final isTv = globalState.isAndroidTV;
+    final brightness = Theme.of(context).brightness;
 
-    final sheetContent = Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: ShapeDecoration(
-        color: backgroundColor,
-        shape: const RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28.0)),
-        ),
+    final sheetContent = SkyGlassChrome(
+      dockedAtTop: false,
+      radius: 28,
+      // Sheets are dragged and resized live, so they carry the full material
+      // rather than a flat tint — the refraction is what makes the drag feel
+      // like moving a physical plate.
+      settings: SkyGlass.chrome(brightness).copyWith(
+        glassColor: brightness == Brightness.dark
+            ? const Color(0xB30E1116)
+            : const Color(0xC4FFFFFF),
+        shadowElevation: 1.8,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

@@ -70,14 +70,15 @@ dependencies:
     path: plugins/code_forge
   material_ui: ^1.6.0
   cupertino_ui: ^1.1.2
+  liquid_glass_widgets: ^1.16.0
 dependency_overrides:
   flutter_rust_bridge: 2.13.0
   # Fix compile failure: https://github.com/leanflutter/hotkey_manager/pull/66
+  # Vendored: upstream pinned the git ref below to fix a Linux build failure.
+  # GitHub's git transport is unavailable in this build environment, so the
+  # exact commit (1b31e3ca4ab017ee72f54a7065b2073a88403d61) is checked in.
   hotkey_manager_linux:
-    git:
-      url: https://github.com/gepbird/hotkey_manager.git
-      path: packages/hotkey_manager_linux
-      ref: fix-build-failure
+    path: third_party/hotkey_manager_linux
 dev_dependencies:
   flutter_test:
     sdk: flutter

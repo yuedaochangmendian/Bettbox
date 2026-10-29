@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:bett_box/models/models.dart';
 import 'package:bett_box/providers/app.dart';
+import 'package:bett_box/ui/glass/glass_kit.dart';
 import 'package:bett_box/widgets/fade_box.dart';
 import 'package:bett_box/widgets/pop_scope.dart';
 import 'package:material_ui/material_ui.dart';
@@ -284,30 +285,35 @@ class CommonScaffoldState extends State<CommonScaffold> {
   PreferredSizeWidget _buildAppBar() {
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          widget.appBar ??
-              ValueListenableBuilder<AppBarState>(
-                valueListenable: _appBarState,
-                builder: (_, state, _) {
-                  return _buildAppBarWrap(
-                    AppBar(
-                      centerTitle: widget.centerTitle ?? false,
-                      leading: _buildLeading(),
-                      title: _buildTitle(state.searchState),
-                      actions: _buildActions(
-                        state.searchState != null,
-                        state.actions.isNotEmpty
-                            ? state.actions
-                            : widget.actions ?? [],
+      child: SkyGlassChrome(
+        // The app bar is the one bar that is always present, so it carries the
+        // full refractive treatment: blurred wallpaper behind it, a specular
+        // rim along the bottom edge, and a slight chromatic fringe.
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            widget.appBar ??
+                ValueListenableBuilder<AppBarState>(
+                  valueListenable: _appBarState,
+                  builder: (_, state, _) {
+                    return _buildAppBarWrap(
+                      AppBar(
+                        centerTitle: widget.centerTitle ?? false,
+                        leading: _buildLeading(),
+                        title: _buildTitle(state.searchState),
+                        actions: _buildActions(
+                          state.searchState != null,
+                          state.actions.isNotEmpty
+                              ? state.actions
+                              : widget.actions ?? [],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-          _buildLoading(),
-        ],
+                    );
+                  },
+                ),
+            _buildLoading(),
+          ],
+        ),
       ),
     );
   }
@@ -370,18 +376,17 @@ class CommonScaffoldState extends State<CommonScaffold> {
       ),
     );
     return DesktopBackShortcutWrapper(
-      child: Consumer(
-        builder: (context, ref, _) {
-          final isMobileView = ref.watch(isMobileViewProvider);
+      child: Builder(
+        builder: (context) {
           return Scaffold(
             appBar: _buildAppBar(),
             body: body,
             resizeToAvoidBottomInset: true,
-            backgroundColor:
-                widget.backgroundColor ??
-                (isMobileView
-                    ? context.colorScheme.surfaceContainer
-                    : Colors.transparent),
+            // Transparent by default: the SkyBackdrop installed by
+            // Application's MaterialApp.builder has to reach the panels for
+            // them to read as glass. Screens that genuinely need an opaque
+            // fill still pass `backgroundColor` explicitly.
+            backgroundColor: widget.backgroundColor ?? Colors.transparent,
             floatingActionButton:
                 widget.floatingActionButton ??
                 ValueListenableBuilder<Widget?>(
