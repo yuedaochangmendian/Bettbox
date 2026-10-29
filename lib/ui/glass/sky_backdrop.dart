@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:bett_box/common/common.dart';
@@ -37,34 +38,49 @@ class SkyBackdrop extends StatefulWidget {
   State<SkyBackdrop> createState() => _SkyBackdropState();
 }
 
-class _SkyBackdropState extends State<SkyBackdrop>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 64),
-  );
+class _SkyBackdropState extends State<SkyBackdrop> {
+  /// Animation phase in `0..1`; one full loop takes [_loopDuration].
+  ///
+  /// A [ValueNotifier] rather than setState: the wallpaper must not rebuild the
+  /// widget tree several times a second, it only needs to repaint itself.
+  final ValueNotifier<double> _phase = ValueNotifier(0);
+
+  static const _tick = Duration(milliseconds: 260);
+  static const _loopDuration = Duration(seconds: 64);
+
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    if (widget.animate) {
-      _controller.repeat();
-    }
+    _sync();
   }
 
   @override
   void didUpdateWidget(SkyBackdrop oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.animate && !_controller.isAnimating) {
-      _controller.repeat();
-    } else if (!widget.animate && _controller.isAnimating) {
-      _controller.stop();
-    }
+    _sync();
+  }
+
+  void _sync() {
+    _timer?.cancel();
+    _timer = null;
+    if (!widget.animate) return;
+    final stepsPerLoop =
+        _loopDuration.inMilliseconds / _tick.inMilliseconds;
+    final step = 1 / stepsPerLoop;
+    // ~4 repaints per second. The drift is slow enough that a full 60 fps
+    // repaint of four full-screen radial gradients would be pure waste; this
+    // keeps the wallpaper off the raster budget while still reading as motion.
+    _timer = Timer.periodic(_tick, (_) {
+      _phase.value = (_phase.value + step) % 1.0;
+    });
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _timer?.cancel();
+    _phase.dispose();
     super.dispose();
   }
 
@@ -76,18 +92,10 @@ class _SkyBackdropState extends State<SkyBackdrop>
       intensity: widget.intensity,
     );
     return RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          return CustomPaint(
-            painter: _BackdropPainter(
-              palette: palette,
-              phase: _controller.value,
-            ),
-            willChange: widget.animate,
-            child: const SizedBox.expand(),
-          );
-        },
+      child: CustomPaint(
+        painter: _BackdropPainter(palette: palette, phase: _phase),
+        willChange: widget.animate,
+        child: const SizedBox.expand(),
       ),
     );
   }
@@ -169,12 +177,19 @@ class _BackdropPalette {
 }
 
 class _BackdropPainter extends CustomPainter {
-  _BackdropPainter({required this.palette, required this.phase});
+  _BackdropPainter({
+    required this.palette,
+    required ValueNotifier<double> phase,
+  }) : _phase = phase,
+       super(repaint: phase);
 
   final _BackdropPalette palette;
 
-  /// 0..1 animation phase; one full loop is ~64s.
-  final double phase;
+  /// Driving phase; the notifier doubles as the painter's repaint signal so the
+  /// wallpaper repaints without rebuilding any widgets.
+  final ValueNotifier<double> _phase;
+
+  double get phase => _phase.value;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -222,6 +237,6 @@ class _BackdropPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BackdropPainter oldDelegate) {
-    return oldDelegate.phase != phase || oldDelegate.palette != palette;
+    return oldDelegate.palette != palette;
   }
 }
