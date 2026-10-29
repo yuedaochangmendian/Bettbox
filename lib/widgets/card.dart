@@ -208,14 +208,18 @@ class CommonCard extends StatelessWidget {
     );
 
     if (elevated) {
+      final isLight = context.colorScheme.brightness == Brightness.light;
       card = DecoratedBox(
         decoration: ShapeDecoration(
           shape: shape,
           shadows: [
             BoxShadow(
-              blurRadius: 18,
-              offset: const Offset(0, 4),
-              color: Colors.black.withValues(alpha: 0.10),
+              // Dense lists stack dozens of these cards a few pixels apart, so
+              // the drop shadow stays shallow — the glass rim, not the shadow,
+              // is what separates one surface from the next.
+              blurRadius: 14,
+              offset: const Offset(0, 3),
+              color: Colors.black.withValues(alpha: isLight ? 0.07 : 0.18),
             ),
           ],
         ),

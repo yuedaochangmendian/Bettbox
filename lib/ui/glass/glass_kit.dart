@@ -140,21 +140,57 @@ class SkyGlassPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final effectiveSettings = settings ?? SkyGlass.panel(brightness);
     Widget surface = AdaptiveGlass(
       shape: shape ?? SkyGlass.squircle(radius),
-      settings: settings ?? SkyGlass.panel(brightness),
+      settings: effectiveSettings,
       quality: quality,
       useOwnLayer: useOwnLayer,
       clipBehavior: clipBehavior,
-      child: Padding(
-        padding: padding ?? EdgeInsets.zero,
-        child: child,
+      child: _GlassHost(
+        settings: effectiveSettings,
+        quality: quality,
+        child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
       ),
     );
     if (margin != null) {
       surface = Padding(padding: margin!, child: surface);
     }
     return surface;
+  }
+}
+
+/// Marks a subtree as living *inside* a refractive surface.
+///
+/// Nesting one glass surface in another is the one thing the underlying library
+/// forbids: a second [BackdropFilter] under an existing glass layer makes
+/// Impeller thrash GPU tile memory and can drop whole surfaces. Bettbox nests
+/// glass constantly — settings rows sit inside section cards, and section cards
+/// sit inside the glass bottom sheets — so every surface built here publishes
+/// `avoidsRefraction`, exactly as the library's own `GlassContainer` does.
+///
+/// Descendants that honour the flag render as a tinted vibrancy fill: same rim,
+/// same specular highlight, no second backdrop read. That is also what iOS 26
+/// does with a `UIVibrancyEffect` inside a `UIVisualEffectView`.
+class _GlassHost extends StatelessWidget {
+  const _GlassHost({
+    required this.settings,
+    required this.quality,
+    required this.child,
+  });
+
+  final LiquidGlassSettings settings;
+  final GlassQuality quality;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return InheritedLiquidGlass(
+      settings: settings,
+      quality: quality,
+      avoidsRefraction: true,
+      child: child,
+    );
   }
 }
 
@@ -189,16 +225,21 @@ class SkyGlassChrome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final effectiveSettings = settings ?? SkyGlass.chrome(brightness);
     return AdaptiveGlass(
       shape: shape ??
           (dockedAtTop
               ? SkyGlass.topBar(radius)
               : SkyGlass.bottomBar(radius)),
-      settings: settings ?? SkyGlass.chrome(brightness),
+      settings: effectiveSettings,
       quality: quality,
       useOwnLayer: false,
       clipBehavior: clipBehavior,
-      child: child,
+      child: _GlassHost(
+        settings: effectiveSettings,
+        quality: quality,
+        child: child,
+      ),
     );
   }
 }
@@ -222,13 +263,22 @@ class SkyGlassCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final effectiveSettings = settings ?? SkyGlass.pill(brightness);
     return AdaptiveGlass(
       shape: const LiquidOval(),
-      settings: settings ?? SkyGlass.pill(brightness),
+      settings: effectiveSettings,
       quality: quality,
       useOwnLayer: false,
       clipBehavior: Clip.antiAlias,
-      child: SizedBox(width: size, height: size, child: Center(child: child)),
+      child: _GlassHost(
+        settings: effectiveSettings,
+        quality: quality,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Center(child: child),
+        ),
+      ),
     );
   }
 }
